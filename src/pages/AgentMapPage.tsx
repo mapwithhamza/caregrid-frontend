@@ -120,8 +120,8 @@ function toTechnicalError(error: unknown): UiErrorState {
 
     if ((error.status ?? 0) >= 500 || (error.status ?? 0) === 0) {
       return {
-        title: "Backend unavailable",
-        message: "The backend is unavailable. Please ensure API is running at localhost:8000.",
+        title: "Backend connection failed",
+        message: `Failed to connect to backend (${error.status === 0 ? "Blocked by browser extension or CORS" : `Server Error ${error.status}`}).`,
         technical: `${status}; ${code}; detail=${details}`
       };
     }
