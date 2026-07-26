@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Flag,
   MapPinned,
+  RefreshCw,
   ShieldCheck,
   TrendingUp
 } from "lucide-react";
@@ -13,6 +14,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Label,
   Legend,
   Pie,
   PieChart,
@@ -83,6 +85,7 @@ export function DashboardPage() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setIsLoading(true);
@@ -113,6 +116,7 @@ export function DashboardPage() {
         trustGapSummary,
         priorityStates
       });
+      setLastRefreshed(new Date());
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -160,13 +164,29 @@ export function DashboardPage() {
             <Badge variant="info">CSV-backed</Badge>
             <Badge variant="default">Trust scoring active</Badge>
           </div>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+          <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-50 sm:text-4xl">
             CareGrid Intelligence Dashboard
           </h2>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
+          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-400">
             Live healthcare trust, readiness, and verification intelligence from
             10,000 Indian facility records.
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastRefreshed ? (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              Updated {lastRefreshed.toLocaleTimeString()}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void loadDashboard()}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          >
+            <RefreshCw className={["h-4 w-4", isLoading ? "animate-spin" : ""].join(" ")} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -176,36 +196,42 @@ export function DashboardPage() {
           value={formatNumber(overview.total_facilities)}
           description="Facility records served by the backend."
           icon={Building2}
+          color="teal"
         />
         <MetricCard
           title="States/UTs covered"
           value={formatNumber(overview.states_covered)}
           description="Cleaned state coverage in the dataset."
           icon={MapPinned}
+          color="sky"
         />
         <MetricCard
           title="Average trust score"
           value={formatScore(overview.average_trust_score)}
           description="National average across all facilities."
           icon={TrendingUp}
+          color="violet"
         />
         <MetricCard
           title="Ready for recommendation"
           value={formatNumber(overview.ready_for_recommendation_count)}
           description="Facilities ready for recommendation."
           icon={CheckCircle2}
+          color="emerald"
         />
         <MetricCard
           title="Do not recommend"
           value={formatNumber(trustGapSummary.do_not_recommend_without_review)}
           description="Require human review before use."
           icon={AlertTriangle}
+          color="red"
         />
         <MetricCard
           title="Contradiction flags"
           value={formatNumber(trustGapSummary.facilities_with_contradiction_flags)}
           description="Facilities with verification warning signals."
           icon={Flag}
+          color="amber"
         />
       </div>
 
@@ -273,14 +299,26 @@ export function DashboardPage() {
                       fill={trustColors[index % trustColors.length]}
                     />
                   ))}
+                  <Label
+                    position="center"
+                    content={() => (
+                      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                        <tspan x="50%" dy="-8" fontSize={22} fontWeight={700} fill="#0f172a">
+                          {formatNumber(overview.total_facilities)}
+                        </tspan>
+                        <tspan x="50%" dy={20} fontSize={11} fill="#64748b">
+                          facilities
+                        </tspan>
+                      </text>
+                    )}
+                  />
                 </Pie>
                 <Tooltip
-                  formatter={(value, _name, props) => [
-                    `${formatNumber(Number(value))} facilities (${formatPercent(
-                      props.payload.percent_of_total
-                    )})`,
-                    "Count"
-                  ]}
+                  formatter={(value, _name, item) => {
+                    const raw = (item as unknown) as Record<string, unknown>;
+                    const pct = typeof raw["percent_of_total"] === "number" ? raw["percent_of_total"] : null;
+                    return [`${formatNumber(Number(value ?? 0))} facilities (${formatPercent(pct)})`, "Count"];
+                  }}
                 />
                 <Legend />
               </PieChart>

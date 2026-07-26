@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Download, Sparkles } from "lucide-react";
 
 import { recommendFacilitiesAiReady, getFacilityFilters, getStateRiskIndex } from "../api/caregridApi";
 import { CareGridApiError } from "../api/client";
@@ -52,6 +53,87 @@ const examplePrompts = [
 
 const defaultSafetyNote =
   "This tool supports discovery and verification workflows. Confirm current capability, availability, and clinical suitability directly with the facility.";
+
+// ── Skeleton Card ─────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex flex-wrap gap-2">
+        <div className="skeleton h-5 w-16 rounded-full" />
+        <div className="skeleton h-5 w-24 rounded-full" />
+        <div className="skeleton h-5 w-20 rounded-full" />
+      </div>
+      <div className="skeleton mt-3 h-6 w-3/4 rounded-xl" />
+      <div className="skeleton mt-2 h-4 w-1/3 rounded-xl" />
+      <div className="skeleton mt-3 h-16 w-full rounded-xl" />
+      <div className="mt-3 flex gap-2">
+        <div className="skeleton h-5 w-28 rounded-full" />
+        <div className="skeleton h-5 w-20 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+// ── Loading stepper ───────────────────────────────────────────
+function LoadingStepper({ currentStep }: { currentStep: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex flex-wrap gap-2">
+        {loadingSteps.map((step, i) => (
+          <div
+            key={step}
+            className={[
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all",
+              i < currentStep
+                ? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-400"
+                : i === currentStep
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800"
+            ].join(" ")}
+          >
+            {i < currentStep ? "✓" : i === currentStep ? (
+              <span className="inline-block h-2 w-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : null}
+            {step}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── CSV Export ────────────────────────────────────────────────
+function exportToCsv(response: AgentNormalizedResponse, query: string): void {
+  const headers = [
+    "Rank", "Name", "City", "State", "Facility Type",
+    "Trust Score", "Trust Category", "Readiness", "Final Score", "Reason"
+  ];
+  const rows = response.recommendations.map((item, i) => [
+    String(i + 1),
+    item.name ?? "",
+    item.city ?? "",
+    item.state ?? "",
+    item.facility_type ?? "",
+    item.trust_score != null ? String(item.trust_score) : "",
+    item.trust_category ?? "",
+    item.recommendation_readiness ?? "",
+    item.final_score != null ? String(item.final_score) : "",
+    (item.reason_for_recommendation ?? "").replace(/,/g, ";")
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `caregrid-recommendations-${query.slice(0, 30).replace(/\s+/g, "-")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const initialFormState: AgentFormState = {
   query: "",
@@ -385,14 +467,14 @@ export function AgentMapPage() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="flex flex-wrap gap-2">
           <Badge variant="success">Agent + Map default</Badge>
           <Badge variant="info">Backend-only integration</Badge>
           <Badge variant="default">AI-ready schema</Badge>
         </div>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">CareGrid India</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
+        <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-50">CareGrid India</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
           AI-ready healthcare trust intelligence. Ask a healthcare query and inspect recommended
           facilities directly on the India map.
         </p>
@@ -412,9 +494,9 @@ export function AgentMapPage() {
 
       <div className="grid gap-6 xl:grid-cols-[40%_60%]">
         <div className="space-y-4 xl:max-h-[980px] xl:overflow-y-auto xl:pr-1">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <label className="space-y-2">
-              <span className="text-sm font-semibold text-slate-700">Healthcare query</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Healthcare query</span>
               <textarea
                 className="min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 placeholder="Find trusted ICU hospitals in Bihar"
@@ -427,10 +509,11 @@ export function AgentMapPage() {
               {examplePrompts.map((prompt) => (
                 <button
                   key={prompt}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-teal-300 hover:bg-teal-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-teal-600 dark:hover:bg-teal-950/30"
                   type="button"
                   onClick={() => setFormState((current) => ({ ...current, query: prompt }))}
                 >
+                  <Sparkles className="h-3 w-3 text-teal-500" />
                   {prompt}
                 </button>
               ))}
@@ -515,7 +598,7 @@ export function AgentMapPage() {
 
             <div className="mt-4 flex flex-wrap gap-3">
               <button
-                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 dark:bg-teal-600 dark:hover:bg-teal-500"
                 type="button"
                 disabled={isLoading}
                 onClick={() => void runRecommendation()}
@@ -523,7 +606,7 @@ export function AgentMapPage() {
                 {isLoading ? loadingSteps[loadingStepIndex] : "Get recommendations"}
               </button>
               <button
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 type="button"
                 onClick={() => {
                   setFormState(initialFormState);
@@ -535,11 +618,22 @@ export function AgentMapPage() {
               >
                 Reset
               </button>
+              {response && response.recommendations.length > 0 ? (
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-400"
+                  type="button"
+                  onClick={() => exportToCsv(response, formState.query)}
+                >
+                  <Download className="h-4 w-4" />
+                  Export CSV
+                </button>
+              ) : null}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">AI-ready summary</h3>
+          {/* AI Summary */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI-ready summary</h3>
             {response?.ai_answer || response?.ai_summary ? (
               <div className="mt-3 space-y-2">
                 {response.ai_answer ? <p className="text-sm text-slate-800">{response.ai_answer}</p> : null}
@@ -557,7 +651,27 @@ export function AgentMapPage() {
             )}
           </div>
 
-          {response ? (
+          {/* Loading state */}
+          {isLoading ? (
+            <div className="space-y-4 animate-fade-in">
+              <LoadingStepper currentStep={loadingStepIndex} />
+              {[1, 2, 3].map((n) => <SkeletonCard key={n} />)}
+            </div>
+          ) : null}
+
+          {/* Result count bar */}
+          {!isLoading && response && response.recommendations.length > 0 ? (
+            <div className="flex items-center justify-between rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 dark:border-teal-800 dark:bg-teal-950/30">
+              <p className="text-sm font-semibold text-teal-800 dark:text-teal-300">
+                Showing <span className="font-bold">{response.recommendations.length}</span> recommendations
+                {requestPayload?.state ? ` in ${requestPayload.state}` : ""}
+                {requestPayload?.facility_type ? ` · ${requestPayload.facility_type}` : ""}
+              </p>
+              <Badge variant="success">{response.recommendations.length} results</Badge>
+            </div>
+          ) : null}
+
+          {!isLoading && response ? (
             <div className="space-y-3">
               {response.recommendations.map((item, index) => {
                 const hasCoords = typeof item.latitude === "number" && typeof item.longitude === "number";
@@ -573,10 +687,10 @@ export function AgentMapPage() {
                     }}
                     type="button"
                     className={[
-                      "w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition",
+                      "w-full rounded-2xl border bg-white p-4 text-left shadow-sm card-lift transition-all dark:bg-slate-800",
                       isSelected
-                        ? "border-teal-500 ring-2 ring-teal-200"
-                        : "border-slate-200 hover:border-slate-300"
+                        ? "border-teal-500 ring-2 ring-teal-200 shadow-teal-100 dark:border-teal-400 dark:ring-teal-900"
+                        : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
                     ].join(" ")}
                     onClick={() => setSelectedFacilityId(item.facility_id)}
                   >
@@ -630,10 +744,14 @@ export function AgentMapPage() {
             </div>
           ) : null}
 
-          {response ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <span className="font-semibold">Safety note: </span>
-              {response.safety_note ?? defaultSafetyNote}
+          {/* Safety note - moved above debug trace */}
+          {!isLoading && response ? (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 text-sm text-amber-800 shadow-sm dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/30 dark:text-amber-300">
+              <span className="mt-0.5 text-lg">⚠️</span>
+              <div>
+                <p className="font-semibold">Clinical Safety Note</p>
+                <p className="mt-1 leading-6">{response.safety_note ?? defaultSafetyNote}</p>
+              </div>
             </div>
           ) : null}
 
